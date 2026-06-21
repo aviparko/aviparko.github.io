@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="theme-color" content="#000000"/>
+<meta name="robots" content="noindex"/>
+<title>Pay for Parking — Aviparko</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://js.stripe.com/v3/"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --g:#00e676;--gd:rgba(0,230,118,0.08);--gb:rgba(0,230,118,0.18);
+  --bg:#000;--bg2:#0a0a0a;--bg3:#111;
+  --m1:rgba(255,255,255,0.08);--m2:rgba(255,255,255,0.04);
+  --t1:#f0f0f2;--t2:rgba(240,240,242,0.6);--t3:rgba(240,240,242,0.32);--t4:rgba(240,240,242,0.15);
+}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--t1);font-family:'Bricolage Grotesque',sans-serif;min-height:100svh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+/* HEADER */
+.pbar{width:100%;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--m1);flex-shrink:0}
+.pbar-logo{font-size:.95rem;font-weight:800;letter-spacing:-.04em;color:var(--t1);display:flex;align-items:center;gap:8px;text-decoration:none}
+.pbar-dot{width:7px;height:7px;border-radius:50%;background:var(--g);animation:ping 3s ease-in-out infinite;flex-shrink:0}
+@keyframes ping{0%,100%{box-shadow:0 0 0 0 rgba(0,230,118,.5)}60%{box-shadow:0 0 0 6px rgba(0,230,118,0)}}
+.pbar-secure{font-family:'DM Mono',monospace;font-size:.52rem;color:var(--t4);letter-spacing:.08em;display:flex;align-items:center;gap:5px}
+.pbar-secure svg{width:10px;height:10px;stroke:var(--t4);stroke-width:2;flex-shrink:0}
+
+/* PROGRESS */
+.prog-wrap{width:100%;max-width:480px;padding:20px 20px 0}
+.prog{display:flex;gap:4px}
+.prog-seg{flex:1;height:2px;border-radius:2px;background:var(--m1);transition:background .3s}
+.prog-seg.active{background:var(--g)}
+.prog-seg.done{background:rgba(0,230,118,.45)}
+
+/* MAIN CARD */
+.pcard-wrap{width:100%;max-width:480px;padding:20px;flex:1;display:flex;flex-direction:column;gap:0}
+
+/* PARK INFO CARD */
+.park-info{background:var(--bg2);border:1px solid var(--m1);border-radius:14px;padding:16px 18px;margin-bottom:20px}
+.park-info-label{font-family:'DM Mono',monospace;font-size:.5rem;color:var(--t4);letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px}
+.park-info-name{font-size:1.05rem;font-weight:700;letter-spacing:-.03em;color:#fff}
+.park-info-sub{font-size:.8rem;color:var(--t3);margin-top:2px;letter-spacing:-.01em}
+
+/* STEP CARD */
+.step-card{background:var(--bg2);border:1px solid var(--m1);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:14px}
+.step-h{font-size:1.1rem;font-weight:700;letter-spacing:-.04em;color:#fff}
+.step-h-sub{font-size:.82rem;color:var(--t3);margin-top:-6px;letter-spacing:-.01em}
+
+/* INPUTS */
+.field{display:flex;flex-direction:column;gap:6px}
+.field-label{font-family:'DM Mono',monospace;font-size:.54rem;color:var(--t3);letter-spacing:.08em;text-transform:uppercase}
+.field-inp{background:rgba(255,255,255,.04);border:1px solid var(--m1);border-radius:10px;padding:14px 16px;color:var(--t1);font-family:'Bricolage Grotesque',sans-serif;font-size:1rem;outline:none;transition:border-color .2s;width:100%;-webkit-appearance:none;appearance:none}
+.field-inp:focus{border-color:rgba(0,230,118,.35);background:rgba(255,255,255,.05)}
+.field-inp.err{border-color:rgba(255,80,80,.4)}
+.field-inp::placeholder{color:var(--t4)}
+.field-err{font-family:'DM Mono',monospace;font-size:.56rem;color:rgba(255,100,100,.8);letter-spacing:.04em;display:none;margin-top:-6px}
+.field-err.show{display:block}
+
+/* RATE BUTTONS */
+.rates{display:flex;flex-direction:column;gap:8px}
+.rate-btn{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:rgba(255,255,255,.03);border:1px solid var(--m1);border-radius:12px;cursor:pointer;transition:all .18s;width:100%;text-align:left;min-height:56px}
+.rate-btn:hover,.rate-btn:focus{background:rgba(255,255,255,.055);border-color:rgba(255,255,255,.15);outline:none}
+.rate-btn.sel{border-color:rgba(0,230,118,.35);background:rgba(0,230,118,.05)}
+.rate-btn.sel .rate-name{color:var(--g)}
+.rate-name{font-size:.95rem;font-weight:600;color:#fff;transition:color .18s}
+.rate-sub{font-family:'DM Mono',monospace;font-size:.55rem;color:var(--t4);margin-top:3px}
+.rate-price{font-size:1rem;font-weight:700;color:#fff}
+
+/* SUMMARY */
+.sum{border:1px solid var(--m1);border-radius:12px;overflow:hidden;margin-top:4px}
+.sum-row{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;border-bottom:1px solid var(--m1);font-size:.88rem}
+.sum-row:last-child{border-bottom:none;font-weight:700;background:rgba(255,255,255,.02)}
+.sk{color:var(--t2)}
+.sv{color:#fff}
+
+/* STRIPE ELEMENT */
+.stripe-box{background:rgba(255,255,255,.04);border:1px solid var(--m1);border-radius:12px;padding:16px;margin-top:4px}
+#card-errors{font-family:'DM Mono',monospace;font-size:.58rem;color:rgba(255,100,100,.8);min-height:18px;margin-top:6px;letter-spacing:.02em}
+
+/* BUTTONS */
+.btn-act{display:block;width:100%;background:var(--g);color:#000;border:none;cursor:pointer;font-family:'Bricolage Grotesque',sans-serif;font-size:1rem;font-weight:800;padding:16px;border-radius:100px;transition:all .22s;letter-spacing:-.02em;min-height:54px}
+.btn-act:hover{background:#1aff8a}
+.btn-act:disabled{opacity:.4;cursor:default}
+.btn-back{background:none;border:none;cursor:pointer;font-family:'Bricolage Grotesque',sans-serif;font-size:.88rem;color:var(--t3);padding:10px 0;transition:color .2s;text-align:left}
+.btn-back:hover{color:var(--t1)}
+
+/* PAY ERROR */
+.pay-err{background:rgba(255,80,80,.07);border:1px solid rgba(255,80,80,.2);border-radius:10px;padding:12px 14px;font-family:'DM Mono',monospace;font-size:.62rem;color:rgba(255,150,150,.9);letter-spacing:.03em;display:none;line-height:1.6}
+.pay-err.show{display:block}
+
+/* SUCCESS */
+.success{text-align:center;display:flex;flex-direction:column;align-items:center;gap:16px;padding:20px 0}
+.success-check{width:64px;height:64px;border-radius:50%;background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.22);display:flex;align-items:center;justify-content:center;font-size:1.6rem}
+.success-title{font-size:1.3rem;font-weight:800;letter-spacing:-.045em;color:#fff}
+.success-sub{font-size:.9rem;color:var(--t2);line-height:1.7}
+.success-plate{font-family:'DM Mono',monospace;font-size:1rem;font-weight:600;letter-spacing:.1em;background:rgba(255,255,255,.05);border:1px solid var(--m1);border-radius:8px;padding:10px 20px;color:#fff}
+.success-detail{width:100%;border:1px solid var(--m1);border-radius:12px;overflow:hidden}
+.success-row{display:flex;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--m1);font-size:.85rem}
+.success-row:last-child{border-bottom:none}
+.success-lbl{color:var(--t3)}
+.success-val{color:#fff;font-weight:500}
+
+/* LOADING */
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:60px 20px}
+.spin{width:32px;height:32px;border:2px solid rgba(0,230,118,.15);border-top-color:var(--g);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-txt{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--t4);letter-spacing:.08em}
+
+/* ERROR FULL */
+.full-err{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:60px 20px;text-align:center}
+.full-err-icon{width:52px;height:52px;border-radius:50%;background:rgba(255,80,80,.07);border:1px solid rgba(255,80,80,.2);display:flex;align-items:center;justify-content:center;font-size:1.3rem}
+.full-err-title{font-size:1rem;font-weight:700;letter-spacing:-.03em;color:#fff}
+.full-err-sub{font-size:.84rem;color:var(--t3);line-height:1.7;max-width:300px}
+.full-err-link{font-size:.82rem;color:var(--g);text-decoration:underline;text-decoration-color:rgba(0,230,118,.3);cursor:pointer;background:none;border:none;font-family:inherit}
+
+/* FOOTER NOTE */
+.pfooter{width:100%;max-width:480px;padding:16px 20px 32px;display:flex;flex-direction:column;gap:8px;align-items:center}
+.pfooter-strip{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center}
+.pfooter-item{font-family:'DM Mono',monospace;font-size:.52rem;color:var(--t4);letter-spacing:.06em;display:flex;align-items:center;gap:4px}
+.pfooter-item svg{width:10px;height:10px;stroke:var(--t4);stroke-width:2;flex-shrink:0}
+.pfooter-back{font-family:'DM Mono',monospace;font-size:.56rem;color:var(--t4);letter-spacing:.04em;text-decoration:none;transition:color .2s}
+.pfooter-back:hover{color:var(--t2)}
+
+@media(prefers-color-scheme:light){
+  body{background:#f4f4f5;--bg:#f4f4f5;--bg2:#fff;--bg3:#f0f0f1;--t1:#0a0a0a;--t2:rgba(10,10,10,.6);--t3:rgba(10,10,10,.38);--t4:rgba(10,10,10,.22);--m1:rgba(0,0,0,.09);--m2:rgba(0,0,0,.05)}
+  .field-inp{background:rgba(0,0,0,.03);color:#0a0a0a}
+  .field-inp:focus{background:rgba(0,0,0,.04)}
+  .rate-btn{background:rgba(0,0,0,.02)}
+  .rate-btn:hover{background:rgba(0,0,0,.04)}
+  .rate-name{color:#0a0a0a}
+  .rate-price{color:#0a0a0a}
+  .sv{color:#0a0a0a}
+  .success-plate{background:rgba(0,0,0,.04)}
+  .stripe-box{background:rgba(0,0,0,.03)}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="pbar">
+  <a href="https://aviparko.pages.dev" class="pbar-logo">
+    <span class="pbar-dot"></span>Aviparko
+  </a>
+  <div class="pbar-secure">
+    <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    Secured by Stripe
+  </div>
+</div>
+
+<!-- PROGRESS BAR -->
+<div class="prog-wrap">
+  <div class="prog" id="prog">
+    <div class="prog-seg active" id="seg0"></div>
+    <div class="prog-seg" id="seg1"></div>
+    <div class="prog-seg" id="seg2"></div>
+    <div class="prog-seg" id="seg3"></div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="pcard-wrap" id="main"></div>
+
+<!-- FOOTER -->
+<div class="pfooter">
+  <div class="pfooter-strip">
+    <div class="pfooter-item">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      PCI-DSS Level 1
+    </div>
+    <div class="pfooter-item">
+      <svg viewBox="0 0 24 24" fill="none"><polyline points="20 6 9 17 4 12"/></svg>
+      No account needed
+    </div>
+    <div class="pfooter-item">
+      <svg viewBox="0 0 24 24" fill="none"><polyline points="20 6 9 17 4 12"/></svg>
+      No app download
+    </div>
+  </div>
+  <a href="https://aviparko.pages.dev" class="pfooter-back">← Back to Aviparko</a>
+</div>
+
+<script>
+var STRIPE_PK='pk_test_51TP8kA97H7jfxHIdJR1xxYZJilv1YIVOJhA4VL2rMQ36x66BB77jVnLGcipQaTSqKTczgPHnWbiFG2u2O8J63v9V001jJBtEr1';
+var API='https://vvpprfdbsxksplntcdfr.supabase.co/functions/v1';
+
+var state={parkId:null,park:null,selectedRate:null,registration:'',email:'',intentData:null,stripe:null,cardElement:null};
+
+function fmt(p){return'\u00a3'+(p/100).toFixed(2);}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function main(){return document.getElementById('main');}
+
+function setProgress(step){
+  for(var i=0;i<4;i++){
+    var s=document.getElementById('seg'+i);
+    if(s) s.className='prog-seg'+(i<step?' done':i===step?' active':'');
+  }
+}
+
+// ── GET PARK ID FROM URL ──────────────────────────────────────────────────────
+// Reads ?park=EDGAR-01  OR  ?p=EDGAR-01  OR  #park=EDGAR-01  OR  #pay=EDGAR-01
+// QR codes should link to: https://aviparko.pages.dev/pay.html?park=EDGAR-01
+function getParkId(){
+  // Query string — most reliable from QR codes
+  try{
+    var params=new URLSearchParams(window.location.search);
+    var v=params.get('park')||params.get('pay')||params.get('p');
+    if(v) return v.trim().toUpperCase();
+  }catch(e){}
+  // Hash fallback
+  var hash=window.location.hash||'';
+  var m=hash.match(/(?:park|pay|p)=([^&]+)/i);
+  if(m) return decodeURIComponent(m[1]).trim().toUpperCase();
+  return null;
+}
+
+// ── LOADING ──────────────────────────────────────────────────────────────────
+function showLoading(msg){
+  setProgress(0);
+  main().innerHTML='<div class="loading"><div class="spin"></div><div class="loading-txt">'+(msg||'Loading\u2026')+'</div></div>';
+}
+
+// ── FULL ERROR ────────────────────────────────────────────────────────────────
+function showError(title,sub){
+  setProgress(0);
+  main().innerHTML='<div class="full-err">'
+    +'<div class="full-err-icon">!</div>'
+    +'<div class="full-err-title">'+esc(title)+'</div>'
+    +'<p class="full-err-sub">'+esc(sub)+'</p>'
+    +'<a href="https://aviparko.pages.dev" class="full-err-link">← Back to Aviparko</a>'
+    +'</div>';
+}
+
+// ── NO PARK ID ────────────────────────────────────────────────────────────────
+function showNoPark(){
+  setProgress(0);
+  main().innerHTML='<div class="full-err">'
+    +'<div class="full-err-icon">🅿</div>'
+    +'<div class="full-err-title">Scan a car park QR code to pay</div>'
+    +'<p class="full-err-sub">This page is opened automatically when you scan an Aviparko QR code at a car park entrance.</p>'
+    +'<a href="https://aviparko.pages.dev" class="full-err-link">← Go to Aviparko</a>'
+    +'</div>';
+}
+
+// ── STEP 1: REGISTRATION ──────────────────────────────────────────────────────
+function stepDetails(){
+  setProgress(0);
+  var p=state.park;
+  main().innerHTML=''
+    +'<div class="park-info">'
+      +'<div class="park-info-label">Car park<\/div>'
+      +'<div class="park-info-name">'+esc(p.name)+'<\/div>'
+      +(p.address||p.town?'<div class="park-info-sub">'+esc(p.address||p.town||'')+'<\/div>':'')
+    +'<\/div>'
+    +'<div class="step-card">'
+      +'<div class="step-h">Your registration plate<\/div>'
+      +'<div class="step-h-sub">Enter your vehicle registration to begin.<\/div>'
+      +'<div class="field">'
+        +'<label class="field-label">Registration plate<\/label>'
+        +'<input class="field-inp" id="inp-plate" type="text" placeholder="e.g. AB12 CDE" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="10" inputmode="text"\/>'
+        +'<div class="field-err" id="err-plate">Please enter a valid UK registration plate.<\/div>'
+      +'<\/div>'
+      +'<div class="field">'
+        +'<label class="field-label">Email <span style="color:var(--t4);font-weight:300;text-transform:none;letter-spacing:0">(optional — for receipt)<\/span><\/label>'
+        +'<input class="field-inp" id="inp-email" type="email" placeholder="you@example.com" autocomplete="email" inputmode="email"\/>'
+      +'<\/div>'
+      +'<button class="btn-act" onclick="submitDetails()">Continue &rarr;<\/button>'
+    +'<\/div>';
+
+  setTimeout(function(){
+    var el=document.getElementById('inp-plate');
+    if(el){
+      el.focus();
+      ['inp-plate','inp-email'].forEach(function(id){
+        var f=document.getElementById(id);
+        if(f) f.addEventListener('keydown',function(e){if(e.key==='Enter')submitDetails();});
+      });
+    }
+  },80);
+}
+
+function submitDetails(){
+  var plate=(document.getElementById('inp-plate').value||'').trim().toUpperCase();
+  var email=(document.getElementById('inp-email').value||'').trim();
+  var errEl=document.getElementById('err-plate');
+  var inpEl=document.getElementById('inp-plate');
+
+  // UK plate validation
+  var clean=plate.replace(/\s/g,'');
+  var ukRe=[/^[A-Z]{2}[0-9]{2}[A-Z]{3}$/,/^[A-Z][0-9]{1,3}[A-Z]{3}$/,/^[A-Z]{3}[0-9]{1,3}[A-Z]$/,/^[A-Z]{1,2}[0-9]{1,4}$/,/^[0-9]{1,4}[A-Z]{1,2}$/,/^[A-Z]{2}[0-9]{2}[A-Z]{3}$/];
+  var valid=clean.length>=2&&clean.length<=7&&ukRe.some(function(r){return r.test(clean);});
+  if(!valid){
+    inpEl.classList.add('err');
+    errEl.classList.add('show');
+    inpEl.focus();
+    return;
+  }
+  inpEl.classList.remove('err');
+  errEl.classList.remove('show');
+  state.registration=plate;
+  state.email=email;
+  stepRates();
+}
+
+// ── STEP 2: CHOOSE DURATION ───────────────────────────────────────────────────
+function stepRates(){
+  setProgress(1);
+  if(!state.park.rates||!state.park.rates.length){
+    showError('No rates available','This car park has not set up any parking rates yet. Please contact the car park operator.');
+    return;
+  }
+  var ratesHtml=state.park.rates.map(function(r,i){
+    var p=r.price_pence||Math.round((r.price||0)*100);
+    return '<button class="rate-btn" id="rb'+i+'" onclick="selectRate('+i+')" type="button">'
+      +'<div><div class="rate-name">'+esc(r.label||r.hours+'h')+'<\/div>'
+      +'<div class="rate-sub">'+r.hours+' hour'+(r.hours!==1?'s':'')+'<\/div><\/div>'
+      +'<div class="rate-price">'+fmt(p)+'<\/div>'
+      +'<\/button>';
+  }).join('');
+
+  main().innerHTML=''
+    +'<div class="park-info">'
+      +'<div class="park-info-label">'+esc(state.park.name)+'<\/div>'
+      +'<div class="park-info-name">'+esc(state.registration)+'<\/div>'
+      +'<div class="park-info-sub">Choose your parking duration<\/div>'
+    +'<\/div>'
+    +'<div class="step-card">'
+      +'<div class="step-h">How long are you parking?<\/div>'
+      +'<div class="rates">'+ratesHtml+'<\/div>'
+      +'<button class="btn-act" id="rate-next" onclick="submitRate()" disabled type="button">Continue &rarr;<\/button>'
+      +'<button class="btn-back" onclick="stepDetails()" type="button">&larr; Back<\/button>'
+    +'<\/div>';
+}
+
+function selectRate(i){
+  state.selectedRate=state.park.rates[i];
+  document.querySelectorAll('.rate-btn').forEach(function(b){b.classList.remove('sel');});
+  var rb=document.getElementById('rb'+i);
+  if(rb) rb.classList.add('sel');
+  var nx=document.getElementById('rate-next');
+  if(nx) nx.disabled=false;
+}
+
+function submitRate(){
+  if(state.selectedRate) stepPayment();
+}
+
+// ── STEP 3: PAYMENT ───────────────────────────────────────────────────────────
+function stepPayment(){
+  setProgress(2);
+  var rate=state.selectedRate;
+  var pricePence=rate.price_pence||Math.round((rate.price||0)*100);
+  var svcPence=25;
+  var totalEst=pricePence+svcPence;
+
+  main().innerHTML=''
+    +'<div class="park-info">'
+      +'<div class="park-info-label">'+esc(state.park.name)+' · '+esc(state.registration)+'<\/div>'
+      +'<div class="park-info-name">'+esc(rate.label||rate.hours+'h')+' parking<\/div>'
+    +'<\/div>'
+    +'<div class="step-card">'
+      +'<div class="pay-err" id="pay-err"><\/div>'
+      +'<div class="sum">'
+        +'<div class="sum-row"><span class="sk">Parking fee<\/span><span class="sv">'+fmt(pricePence)+'<\/span><\/div>'
+        +'<div class="sum-row"><span class="sk">Service charge<\/span><span class="sv">+'+fmt(svcPence)+'<\/span><\/div>'
+        +'<div class="sum-row"><span class="sk">Total<\/span><span class="sv" id="sum-total">'+fmt(totalEst)+'<\/span><\/div>'
+      +'<\/div>'
+      +'<div>'
+        +'<div style="font-family:\'DM Mono\',monospace;font-size:.54rem;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">Card details<\/div>'
+        +'<div class="stripe-box"><div id="card-element"><\/div><\/div>'
+        +'<div id="card-errors"><\/div>'
+      +'<\/div>'
+      +'<button class="btn-act" id="pay-btn" onclick="submitPayment()" disabled type="button">Pay '+fmt(totalEst)+'<\/button>'
+      +'<button class="btn-back" onclick="stepRates()" type="button">&larr; Back<\/button>'
+    +'<\/div>';
+
+  if(!STRIPE_PK||STRIPE_PK.indexOf('REPLACE')>-1){
+    var errEl=document.getElementById('pay-err');
+    if(errEl){errEl.textContent='Payments are not yet configured. Contact the car park operator.';errEl.classList.add('show');}
+    return;
+  }
+
+  state.stripe=Stripe(STRIPE_PK);
+  var elements=state.stripe.elements({locale:'en-GB'});
+  state.cardElement=elements.create('card',{
+    style:{
+      base:{
+        color:'rgba(255,255,255,0.9)',
+        fontFamily:"'Bricolage Grotesque',sans-serif",
+        fontSize:'16px',
+        '::placeholder':{color:'rgba(255,255,255,0.26)'},
+        iconColor:'rgba(255,255,255,0.4)'
+      },
+      invalid:{color:'#ff6b6b'}
+    }
+  });
+  state.cardElement.mount('#card-element');
+  state.cardElement.on('change',function(e){
+    var errEl=document.getElementById('card-errors');
+    if(errEl) errEl.textContent=e.error?e.error.message:'';
+  });
+
+  // Create payment intent
+  fetch(API+'/sessions/intent',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      park_id:state.parkId,
+      rate_label:rate.label,
+      registration:state.registration,
+      email:state.email||undefined
+    })
+  })
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d.error){
+      var errEl=document.getElementById('pay-err');
+      if(errEl){errEl.textContent=d.error;errEl.classList.add('show');}
+      return;
+    }
+    state.intentData=d;
+    var totalEl=document.getElementById('sum-total');
+    var payBtn=document.getElementById('pay-btn');
+    if(totalEl) totalEl.textContent=fmt(d.total_pence);
+    if(payBtn){payBtn.textContent='Pay '+fmt(d.total_pence);payBtn.disabled=false;}
+  })
+  .catch(function(){
+    var errEl=document.getElementById('pay-err');
+    if(errEl){errEl.textContent='Could not connect. Please check your connection and try again.';errEl.classList.add('show');}
+  });
+}
+
+async function submitPayment(){
+  var btn=document.getElementById('pay-btn');
+  var errEl=document.getElementById('pay-err');
+  btn.disabled=true;
+  btn.textContent='Processing\u2026';
+  errEl.classList.remove('show');
+  try{
+    var result=await state.stripe.confirmCardPayment(state.intentData.client_secret,{
+      payment_method:{card:state.cardElement}
+    });
+    if(result.error){
+      errEl.textContent=result.error.message;
+      errEl.classList.add('show');
+      btn.disabled=false;
+      btn.textContent='Pay '+fmt(state.intentData.total_pence);
+      return;
+    }
+    var confirmRes=await fetch(API+'/sessions/confirm',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        session_id:state.intentData.session_id,
+        payment_intent_id:result.paymentIntent.id
+      })
+    });
+    var confirmData=await confirmRes.json();
+    if(!confirmRes.ok){
+      errEl.textContent=confirmData.error||'Payment confirmation failed. Please try again.';
+      errEl.classList.add('show');
+      btn.disabled=false;
+      btn.textContent='Pay '+fmt(state.intentData.total_pence);
+      return;
+    }
+    stepSuccess(confirmData);
+  }catch(e){
+    errEl.textContent='Payment failed. Please try again.';
+    errEl.classList.add('show');
+    if(btn){btn.disabled=false;btn.textContent='Pay '+fmt(state.intentData.total_pence);}
+  }
+}
+
+// ── STEP 4: SUCCESS ───────────────────────────────────────────────────────────
+function stepSuccess(d){
+  setProgress(3);
+  if(state.cardElement){try{state.cardElement.destroy();}catch(e){}}
+  var exp=new Date(d.expires_at||Date.now()+3600000);
+  main().innerHTML=''
+    +'<div class="step-card">'
+      +'<div class="success">'
+        +'<div class="success-check">\u2713<\/div>'
+        +'<div class="success-title">Payment confirmed<\/div>'
+        +'<p class="success-sub">Your session is now active. You\'re good to park.<\/p>'
+        +'<div class="success-plate">'+esc(d.registration||state.registration)+'<\/div>'
+        +'<div class="success-detail">'
+          +'<div class="success-row"><span class="success-lbl">Duration<\/span><span class="success-val">'+esc(state.selectedRate.label||state.selectedRate.hours+'h')+'<\/span><\/div>'
+          +'<div class="success-row"><span class="success-lbl">Valid until<\/span><span class="success-val">'+exp.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})+'<\/span><\/div>'
+          +'<div class="success-row"><span class="success-lbl">Car park<\/span><span class="success-val">'+esc(state.park.name)+'<\/span><\/div>'
+          +'<div class="success-row"><span class="success-lbl">Amount paid<\/span><span class="success-val" style="color:var(--g)">'+fmt(state.intentData.total_pence)+' \u2713<\/span><\/div>'
+          +(d.ref?'<div class="success-row"><span class="success-lbl">Reference<\/span><span class="success-val" style="font-family:\'DM Mono\',monospace;font-size:.75rem">'+esc(d.ref)+'<\/span><\/div>':'')
+        +'<\/div>'
+      +'<\/div>'
+    +'<\/div>';
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+function boot(){
+  var parkId=getParkId();
+  if(!parkId){showNoPark();return;}
+  state.parkId=parkId;
+  showLoading('Loading car park\u2026');
+  fetch(API+'/parks/'+parkId)
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.error||!d.name){showError('Car park not found','No car park found with that code. Please scan the QR code again or contact the car park operator.');return;}
+      state.park=d;
+      stepDetails();
+    })
+    .catch(function(){showError('Connection error','Could not load car park details. Please check your internet connection and try again.');});
+}
+
+document.addEventListener('DOMContentLoaded',boot);
+</script>
+</body>
+</html>
